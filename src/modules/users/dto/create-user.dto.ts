@@ -1,0 +1,49 @@
+import {
+  IsEmail,
+  IsInt,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  MinLength,
+  MaxLength,
+  Min,
+  Max,
+} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsStrongPassword } from '@common/index';
+
+export class CreateUserDto {
+  @ApiProperty({ example: 'John Doe' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ example: 'john@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  @Transform(({ value }) => value?.toLowerCase().trim())
+  email: string;
+
+  @ApiProperty({ example: 25, minimum: 1, maximum: 150 })
+  @IsInt()
+  @IsNotEmpty()
+  @Min(1)
+  @Max(150)
+  age: number;
+
+  @ApiProperty({ example: 'StrongP@ss123' })
+  @IsString()
+  @IsNotEmpty()
+  @IsStrongPassword()
+  password: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  roles?: string[];
+}
