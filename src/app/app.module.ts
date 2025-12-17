@@ -15,6 +15,8 @@ import { PermissionsModule } from '@modules/permissions/permissions.module';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { PermissionsGuard } from '@modules/auth/guards/permissions.guard';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { ProfileModule } from '@modules/profile/profile.module';
+import { DashboardModule } from '@modules/dashboard/dashboard.module';
 
 
 
@@ -61,7 +63,10 @@ import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
     UsersModule,
     AuthModule,
     RolesModule,
+    RolesModule,
     PermissionsModule,
+    ProfileModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

@@ -50,6 +50,13 @@ async function seed() {
       { slug: 'read.permissions', description: 'Can read permission details' },
       { slug: 'update.permissions', description: 'Can update permission details' },
       { slug: 'delete.permissions', description: 'Can delete permissions' },
+
+      // Profile Permissions
+      { slug: 'read.profile', description: 'Can read own profile' },
+      { slug: 'update.profile', description: 'Can update own profile' },
+
+      // Dashboard Permissions
+      { slug: 'read.dashboard', description: 'Can read dashboard stats' },
     ];
 
     for (const permData of permissionsData) {
@@ -79,7 +86,7 @@ async function seed() {
       {
         name: 'User',
         description: 'Standard User with limited access',
-        permissions: ['read.users'], // Limited permissions
+        permissions: ['read.users', 'read.profile', 'update.profile'], // Limited permissions
       },
       {
         name: 'Manager',
@@ -89,6 +96,9 @@ async function seed() {
           'update.users',
           'read.roles',
           'assign.roles',
+          'read.profile',
+          'update.profile',
+          'read.dashboard',
         ],
       },
     ];
