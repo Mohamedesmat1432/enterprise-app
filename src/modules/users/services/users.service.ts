@@ -12,6 +12,8 @@ import { Role } from '@modules/roles/entities/role.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
+import { UserQueryDto } from '../dto/user-query.dto';
+import { createPaginatedResponse } from '@common/dto/pagination.dto';
 import { handleDatabaseError } from '@common/utils/database-error.handler';
 import { successResponse } from '@common/dto/response.dto';
 
@@ -41,8 +43,43 @@ export class UsersService {
     }
   }
 
-  findAll() {
-    return this.userRepo.find({ relations: ['roles'] });
+  async findAll(query: UserQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      role,
+      status,
+      sortBy = 'id',
+      sortOrder = 'ASC',
+    } = query;
+
+    const qb = this.userRepo.createQueryBuilder('user');
+    qb.leftJoinAndSelect('user.roles', 'roles');
+
+    if (search) {
+      qb.andWhere('(user.name ILIKE :search OR user.email ILIKE :search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    if (role) {
+      qb.andWhere('roles.name = :role', { role });
+    }
+
+    if (status) {
+      qb.andWhere('user.status = :status', { status });
+    }
+
+    if (sortBy) {
+      qb.orderBy(`user.${sortBy}`, sortOrder);
+    }
+
+    qb.skip((page - 1) * limit).take(limit);
+
+    const [items, total] = await qb.getManyAndCount();
+
+    return createPaginatedResponse(items, total, page, limit);
   }
 
   async findOne(id: number) {

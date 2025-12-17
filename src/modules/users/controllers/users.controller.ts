@@ -8,12 +8,14 @@ import {
   Delete,
   Request,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from '../services/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { AssignRoleDto } from '../dto/assign-role.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
+import { UserQueryDto } from '../dto/user-query.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -55,8 +57,8 @@ export class UsersController {
   @Permissions('read.users')
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Return all users.' })
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() query: UserQueryDto) {
+    return this.usersService.findAll(query);
   }
 
   @Get(':id')

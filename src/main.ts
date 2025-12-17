@@ -75,7 +75,11 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      deepLinking: false,
+    },
+  });
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
