@@ -6,11 +6,13 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
+  ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { RolesService } from '../services/roles.service';
 import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
+import { RoleQueryDto } from '../dto/role-query.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -37,15 +39,15 @@ export class RolesController {
   @Permissions('read.roles')
   @ApiOperation({ summary: 'Get all roles' })
   @ApiResponse({ status: 200, description: 'Return all roles.' })
-  findAll() {
-    return this.rolesService.findAll();
+  findAll(@Query() query: RoleQueryDto) {
+    return this.rolesService.findAll(query);
   }
 
   @Get(':id')
   @Permissions('read.roles')
   @ApiOperation({ summary: 'Get role by id' })
   @ApiResponse({ status: 200, description: 'Return role.' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.rolesService.findOne(id);
   }
 
@@ -53,7 +55,7 @@ export class RolesController {
   @Permissions('update.roles')
   @ApiOperation({ summary: 'Update role' })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateRoleDto: UpdateRoleDto,
   ) {
     return this.rolesService.update(id, updateRoleDto);
@@ -62,7 +64,7 @@ export class RolesController {
   @Delete(':id')
   @Permissions('delete.roles')
   @ApiOperation({ summary: 'Delete role' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.rolesService.remove(id);
   }
 
@@ -71,7 +73,7 @@ export class RolesController {
   @ApiOperation({ summary: 'Add permission to role' })
   @ApiResponse({ status: 200, description: 'Permission added successfully.' })
   assignPermission(
-    @Param('id', ParseIntPipe) roleId: number,
+    @Param('id', ParseUUIDPipe) roleId: string,
     @Body('permissionSlug') permissionSlug: string,
   ) {
     return this.rolesService.addPermission(roleId, permissionSlug);

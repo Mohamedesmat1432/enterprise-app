@@ -16,8 +16,8 @@ import { Role } from '@modules/roles/entities/role.entity';
 @Entity()
 export class User {
   @ApiProperty()
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @ApiProperty()
   @Column()

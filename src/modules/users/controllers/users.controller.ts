@@ -7,7 +7,7 @@ import {
   Param,
   Delete,
   Request,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
 import { UsersService } from '../services/users.service';
@@ -66,7 +66,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get user by id' })
   @ApiResponse({ status: 200, description: 'Return the user.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.findOne(id);
   }
 
@@ -77,7 +77,7 @@ export class UsersController {
     status: 200,
     description: 'The user has been successfully updated.',
   })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
   }
 
@@ -88,7 +88,7 @@ export class UsersController {
     status: 200,
     description: 'The user has been successfully deleted.',
   })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.remove(id);
   }
 
@@ -98,7 +98,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Role assigned successfully.' })
   @ApiResponse({ status: 404, description: 'User or Role not found.' })
   assignRole(
-    @Param('id', ParseIntPipe) userId: number,
+    @Param('id', ParseUUIDPipe) userId: string,
     @Body() dto: AssignRoleDto,
   ) {
     return this.usersService.assignRole(userId, dto.roleName);

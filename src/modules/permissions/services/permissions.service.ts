@@ -9,7 +9,8 @@ import { Repository } from 'typeorm';
 import { Permission } from '@modules/permissions/entities/permission.entity';
 import { CreatePermissionDto } from '@modules/permissions/dto/create-permission.dto';
 import { UpdatePermissionDto } from '@modules/permissions/dto/update-permission.dto';
-import { handleDatabaseError, successResponse } from '@common/index';
+import { PermissionQueryDto } from '@modules/permissions/dto/permission-query.dto';
+import { handleDatabaseError, successResponse, createPaginatedResponse } from '@common/index';
 
 @Injectable()
 export class PermissionsService {
@@ -29,11 +30,35 @@ export class PermissionsService {
     }
   }
 
-  findAll() {
-    return this.permissionRepo.find({ relations: ['roles'] });
+  async findAll(query: PermissionQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'slug',
+      sortOrder = 'ASC',
+    } = query;
+
+    const qb = this.permissionRepo.createQueryBuilder('permission');
+
+    if (search) {
+      qb.andWhere('(permission.slug ILIKE :search OR permission.description ILIKE :search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    if (sortBy) {
+      qb.orderBy(`permission.${sortBy}`, sortOrder);
+    }
+
+    qb.skip((page - 1) * limit).take(limit);
+
+    const [items, total] = await qb.getManyAndCount();
+
+    return createPaginatedResponse(items, total, page, limit);
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const permission = await this.permissionRepo.findOne({
       where: { id },
       relations: ['roles'],
@@ -46,7 +71,7 @@ export class PermissionsService {
     return permission;
   }
 
-  async update(id: number, dto: UpdatePermissionDto) {
+  async update(id: string, dto: UpdatePermissionDto) {
     try {
       const result = await this.permissionRepo.update(id, dto);
 
@@ -63,7 +88,7 @@ export class PermissionsService {
     }
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const permission = await this.permissionRepo.findOne({
       where: { id },
       relations: ['roles'],

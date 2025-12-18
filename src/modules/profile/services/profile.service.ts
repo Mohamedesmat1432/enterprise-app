@@ -6,11 +6,11 @@ import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
 export class ProfileService {
     constructor(private readonly usersService: UsersService) { }
 
-    getProfile(userId: number) {
+    getProfile(userId: string) {
         return this.usersService.findOne(userId);
     }
 
-    updateProfile(userId: number, dto: UpdateUserDto) {
+    updateProfile(userId: string, dto: UpdateUserDto) {
         return this.usersService.update(userId, dto);
     }
 }

@@ -5,8 +5,8 @@ import { Role } from '@modules/roles/entities/role.entity';
 @Entity()
 export class Permission {
   @ApiProperty()
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @ApiProperty()
   @Column({ unique: true })

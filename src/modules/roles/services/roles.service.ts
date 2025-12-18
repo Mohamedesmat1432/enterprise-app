@@ -10,9 +10,11 @@ import { Role } from '../entities/role.entity';
 import { Permission } from '@modules/permissions/entities/permission.entity';
 import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
+import { RoleQueryDto } from '../dto/role-query.dto';
 import { SYSTEM_ROLES } from '@common/constants/index';
 import { handleDatabaseError } from '@common/utils/database-error.handler';
 import { successResponse } from '@common/dto/response.dto';
+import { createPaginatedResponse } from '@common/dto/pagination.dto';
 
 @Injectable()
 export class RolesService {
@@ -40,11 +42,36 @@ export class RolesService {
     }
   }
 
-  findAll() {
-    return this.roleRepo.find({ relations: ['permissions'] });
+  async findAll(query: RoleQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'name',
+      sortOrder = 'ASC',
+    } = query;
+
+    const qb = this.roleRepo.createQueryBuilder('role');
+    qb.leftJoinAndSelect('role.permissions', 'permissions');
+
+    if (search) {
+      qb.andWhere('role.name ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    if (sortBy) {
+      qb.orderBy(`role.${sortBy}`, sortOrder);
+    }
+
+    qb.skip((page - 1) * limit).take(limit);
+
+    const [items, total] = await qb.getManyAndCount();
+
+    return createPaginatedResponse(items, total, page, limit);
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const role = await this.roleRepo.findOne({
       where: { id },
       relations: ['permissions'],
@@ -57,7 +84,7 @@ export class RolesService {
     return role;
   }
 
-  async update(id: number, dto: UpdateRoleDto) {
+  async update(id: string, dto: UpdateRoleDto) {
     try {
       const { permissions, ...rest } = dto;
       const role = await this.findOne(id);
@@ -82,7 +109,7 @@ export class RolesService {
     }
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const role = await this.roleRepo.findOne({
       where: { id },
       relations: ['users'],
@@ -110,7 +137,7 @@ export class RolesService {
 
   // ==================== Permission Management ====================
 
-  async addPermission(roleId: number, permissionSlug: string) {
+  async addPermission(roleId: string, permissionSlug: string) {
     const role = await this.findOne(roleId);
     const permission = await this.permissionRepo.findOne({
       where: { slug: permissionSlug },

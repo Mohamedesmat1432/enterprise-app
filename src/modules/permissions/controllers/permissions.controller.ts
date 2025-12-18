@@ -6,11 +6,13 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
+  ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { PermissionsService } from '../services/permissions.service';
 import { CreatePermissionDto } from '../dto/create-permission.dto';
 import { UpdatePermissionDto } from '../dto/update-permission.dto';
+import { PermissionQueryDto } from '../dto/permission-query.dto';
 import { Permissions } from '@modules/auth/decorators/permissions.decorator';
 import {
   ApiTags,
@@ -37,15 +39,15 @@ export class PermissionsController {
   @Permissions('read.permissions')
   @ApiOperation({ summary: 'Get all permissions' })
   @ApiResponse({ status: 200, description: 'Return all permissions.' })
-  findAll() {
-    return this.permissionsService.findAll();
+  findAll(@Query() query: PermissionQueryDto) {
+    return this.permissionsService.findAll(query);
   }
 
   @Get(':id')
   @Permissions('read.permissions')
   @ApiOperation({ summary: 'Get permission by id' })
   @ApiResponse({ status: 200, description: 'Return permission.' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.permissionsService.findOne(id);
   }
 
@@ -53,7 +55,7 @@ export class PermissionsController {
   @Permissions('update.permissions')
   @ApiOperation({ summary: 'Update permission' })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePermissionDto: UpdatePermissionDto,
   ) {
     return this.permissionsService.update(id, updatePermissionDto);
@@ -62,7 +64,7 @@ export class PermissionsController {
   @Delete(':id')
   @Permissions('delete.permissions')
   @ApiOperation({ summary: 'Delete permission' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.permissionsService.remove(id);
   }
 }

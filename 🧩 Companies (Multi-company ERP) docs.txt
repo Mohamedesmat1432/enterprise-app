@@ -1,0 +1,311 @@
+🧩 Companies (Multi-company ERP)
+
+CREATE TABLE companies (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    legal_name TEXT,
+    vat_number VARCHAR(50),
+    email VARCHAR(150),
+    phone VARCHAR(50),
+    website TEXT,
+    currency_code VARCHAR(10),
+    timezone VARCHAR(50),
+    country VARCHAR(50),
+    address TEXT,
+    logo_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT now(),
+    created_by INT REFERENCES users(id)
+);
+
+كل Module Business مرتبط بـ company_id
+✅ أي عملية أو سجل تنتمي لشركة واحدة.
+
+🧩 Partners (Customers / Vendors / Employees)
+
+CREATE TABLE partners (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL,
+    legal_name TEXT,
+    email TEXT,
+    phone TEXT,
+    mobile TEXT,
+    website TEXT,
+    street TEXT,
+    city TEXT,
+    state TEXT,
+    postal_code TEXT,
+    country TEXT,
+    is_customer BOOLEAN DEFAULT false,
+    is_vendor BOOLEAN DEFAULT false,
+    is_employee BOOLEAN DEFAULT false,
+    credit_limit NUMERIC DEFAULT 0,
+    payment_terms VARCHAR(50),
+    is_active BOOLEAN DEFAULT true,
+    created_by INT REFERENCES users(id),
+    updated_by INT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+✅ Multi-company + RBAC
+✅ Customer/Vendor/Employee flags مرنة.
+
+📏 Units of Measure
+
+CREATE TABLE uom_categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE uom (
+    id SERIAL PRIMARY KEY,
+    category_id INT REFERENCES uom_categories(id),
+    name TEXT NOT NULL,
+    ratio NUMERIC NOT NULL,
+    is_reference BOOLEAN DEFAULT false
+);
+
+📦 Products
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL,
+    sku TEXT,
+    barcode TEXT,
+    product_type VARCHAR(20), -- stockable / consumable / service
+    uom_id INT REFERENCES uom(id),
+    purchase_uom_id INT REFERENCES uom(id),
+    sale_price NUMERIC DEFAULT 0,
+    cost_price NUMERIC DEFAULT 0,
+    income_account_id INT REFERENCES accounts(id),
+    expense_account_id INT REFERENCES accounts(id),
+    can_be_sold BOOLEAN DEFAULT true,
+    can_be_purchased BOOLEAN DEFAULT true,
+    is_active BOOLEAN DEFAULT true,
+    created_by INT REFERENCES users(id),
+    updated_by INT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+✅ كل منتج مرتبط بشركة
+✅ محاسبيًا جاهز.
+
+🗂️ Product Categories
+
+CREATE TABLE product_categories (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL,
+    parent_id INT REFERENCES product_categories(id)
+);
+
+CREATE TABLE product_category_rel (
+    product_id INT REFERENCES products(id),
+    category_id INT REFERENCES product_categories(id),
+    PRIMARY KEY(product_id, category_id)
+);
+
+🧾 Sales Orders & Lines
+CREATE TABLE sales_orders (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    customer_id INT REFERENCES partners(id),
+    salesperson_id INT REFERENCES users(id),
+    order_date DATE,
+    expected_delivery_date DATE,
+    state VARCHAR(20), -- draft/confirmed/delivered/cancelled
+    currency_code VARCHAR(10),
+    untaxed_amount NUMERIC DEFAULT 0,
+    tax_amount NUMERIC DEFAULT 0,
+    total_amount NUMERIC DEFAULT 0,
+    created_by INT REFERENCES users(id),
+    updated_by INT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE sales_order_lines (
+    id SERIAL PRIMARY KEY,
+    order_id INT REFERENCES sales_orders(id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(id),
+    quantity NUMERIC NOT NULL,
+    uom_id INT REFERENCES uom(id),
+    unit_price NUMERIC DEFAULT 0,
+    discount NUMERIC DEFAULT 0,
+    subtotal NUMERIC DEFAULT 0
+);
+
+✅ كل الطلبات مرتبطة بشركة
+✅ كل Line مرتبط بالمنتج (محاسبيًا ومخزنيًا).
+
+🛒 Purchase Orders & Lines
+
+CREATE TABLE purchase_orders (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    vendor_id INT REFERENCES partners(id),
+    order_date DATE,
+    state VARCHAR(20), -- draft/confirmed/received/cancelled
+    total_amount NUMERIC DEFAULT 0,
+    created_by INT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE purchase_order_lines (
+    id SERIAL PRIMARY KEY,
+    order_id INT REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(id),
+    quantity NUMERIC NOT NULL,
+    uom_id INT REFERENCES uom(id),
+    unit_price NUMERIC DEFAULT 0,
+    subtotal NUMERIC DEFAULT 0
+);
+
+✅ Multi-company + Product linkage.
+
+🏬 Inventory (Warehouses, Locations, Moves, Quants)
+
+CREATE TABLE warehouses (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL
+);
+
+CREATE TABLE stock_locations (
+    id SERIAL PRIMARY KEY,
+    warehouse_id INT REFERENCES warehouses(id),
+    name TEXT NOT NULL,
+    usage VARCHAR(20) -- internal/customer/vendor
+);
+
+CREATE TABLE stock_moves (
+    id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(id),
+    source_location_id INT REFERENCES stock_locations(id),
+    dest_location_id INT REFERENCES stock_locations(id),
+    quantity NUMERIC NOT NULL,
+    state VARCHAR(20), -- draft/done
+    reference TEXT
+);
+
+CREATE TABLE stock_quant (
+    id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(id),
+    location_id INT REFERENCES stock_locations(id),
+    quantity NUMERIC DEFAULT 0
+);
+
+✅ كل تحرك مرتبط بالشركة و المنتج
+✅ جاهز لتكامل مع Sales & Purchase.
+
+💰 Accounting (Accounts, Journals, Entries)
+
+CREATE TABLE accounts (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL,
+    code TEXT,
+    type VARCHAR(20), -- asset/liability/income/expense
+    balance NUMERIC DEFAULT 0
+);
+
+CREATE TABLE journals (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL,
+    date DATE,
+    state VARCHAR(20), -- draft/posted
+    total_amount NUMERIC DEFAULT 0,
+    created_by INT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE journal_entries (
+    id SERIAL PRIMARY KEY,
+    journal_id INT REFERENCES journals(id) ON DELETE CASCADE,
+    account_id INT REFERENCES accounts(id),
+    debit NUMERIC DEFAULT 0,
+    credit NUMERIC DEFAULT 0
+);
+
+✅ كل حساب مرتبط بشركة
+✅ كل Journal مرتبط بالشركة
+✅ كل Entry مرتبط بالحساب.
+
+🧾 Invoices & Payments
+
+CREATE TABLE invoices (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    partner_id INT REFERENCES partners(id),
+    invoice_date DATE,
+    due_date DATE,
+    state VARCHAR(20), -- draft/confirmed/paid/overdue
+    total_amount NUMERIC DEFAULT 0,
+    created_by INT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE invoice_lines (
+    id SERIAL PRIMARY KEY,
+    invoice_id INT REFERENCES invoices(id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(id),
+    quantity NUMERIC NOT NULL,
+    unit_price NUMERIC DEFAULT 0,
+    discount NUMERIC DEFAULT 0,
+    subtotal NUMERIC DEFAULT 0
+);
+
+CREATE TABLE payments (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    partner_id INT REFERENCES partners(id),
+    amount NUMERIC NOT NULL,
+    payment_date DATE,
+    method VARCHAR(50),
+    state VARCHAR(20) -- draft/posted
+);
+
+🧮 Taxes
+
+CREATE TABLE taxes (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL,
+    rate NUMERIC NOT NULL,
+    type VARCHAR(20) -- tax/exempt
+);
+
+CREATE TABLE product_taxes (
+    product_id INT REFERENCES products(id),
+    tax_id INT REFERENCES taxes(id),
+    PRIMARY KEY(product_id, tax_id)
+);
+
+⚙️ Settings & Audit
+
+CREATE TABLE settings (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    name TEXT NOT NULL,
+    value TEXT
+);
+
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    company_id INT REFERENCES companies(id),
+    user_id INT REFERENCES users(id),
+    action TEXT NOT NULL,
+    model TEXT NOT NULL,
+    record_id INT,
+    old_data JSON,
+    new_data JSON,
+    created_at TIMESTAMP DEFAULT now()
+);
+
+✅ كل Setting مرتبط بشركة
+✅ كل Log مرتبط بشركة.
+

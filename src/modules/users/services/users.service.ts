@@ -82,7 +82,7 @@ export class UsersService {
     return createPaginatedResponse(items, total, page, limit);
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const user = await this.userRepo.findOne({
       where: { id },
       relations: ['roles', 'roles.permissions'],
@@ -95,7 +95,7 @@ export class UsersService {
     return user;
   }
 
-  async update(id: number, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto) {
     try {
       const { roles, password, ...rest } = dto;
 
@@ -129,7 +129,7 @@ export class UsersService {
     }
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const user = await this.userRepo.findOne({ where: { id } });
 
     if (!user) {
@@ -142,7 +142,7 @@ export class UsersService {
 
   // ==================== Role Management ====================
 
-  async assignRole(userId: number, roleName: string) {
+  async assignRole(userId: string, roleName: string) {
     const user = await this.findOne(userId);
     const role = await this.roleRepo.findOne({ where: { name: roleName } });
 
@@ -173,7 +173,7 @@ export class UsersService {
       .getOne();
   }
 
-  async incrementFailedAttempts(userId: number) {
+  async incrementFailedAttempts(userId: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (user) {
       user.incrementFailedAttempts();
@@ -181,7 +181,7 @@ export class UsersService {
     }
   }
 
-  async resetFailedAttempts(userId: number) {
+  async resetFailedAttempts(userId: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (user) {
       user.resetFailedAttempts();
@@ -189,13 +189,13 @@ export class UsersService {
     }
   }
 
-  async updateLastLogin(userId: number) {
+  async updateLastLogin(userId: string) {
     await this.userRepo.update(userId, { lastLoginAt: new Date() });
   }
 
   // ==================== Password Management ====================
 
-  async changePassword(userId: number, dto: ChangePasswordDto) {
+  async changePassword(userId: string, dto: ChangePasswordDto) {
     if (dto.newPassword !== dto.confirmPassword) {
       throw new BadRequestException('New passwords do not match');
     }
