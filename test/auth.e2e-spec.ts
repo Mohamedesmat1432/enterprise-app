@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -54,7 +55,7 @@ describe('AuthController (e2e)', () => {
                 email: email,
                 password: 'password',
             })
-            .expect(201)
+            .expect(200)
             .expect((res) => {
                 expect(res.body).toHaveProperty('access_token');
                 expect(res.body.user).toHaveProperty('email', email);

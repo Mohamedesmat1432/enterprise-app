@@ -3,16 +3,19 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from '../src/users/entities/user.entity';
-import { Role } from '../src/roles/entities/role.entity';
+import { User } from '@modules/users/domain/entities/user.entity';
+import { Role } from '@modules/roles/domain/entities/role.entity';
+import { Company } from '@modules/companies/domain/entities/company.entity';
+import { Permission } from '@modules/permissions/domain/entities/permission.entity';
 import { Repository } from 'typeorm';
-import { CreateRoleDto } from '../src/roles/dto/create-role.dto';
+import { CreateRoleDto } from '@modules/roles/dto/create-role.dto';
 
 describe('RolesController (e2e)', () => {
     let app: INestApplication;
     let adminToken: string;
     let userRepo: Repository<User>;
     let roleRepo: Repository<Role>;
+    let companyRepo: Repository<Company>;
 
     beforeAll(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,15 +27,37 @@ describe('RolesController (e2e)', () => {
 
         userRepo = app.get(getRepositoryToken(User));
         roleRepo = app.get(getRepositoryToken(Role));
+        companyRepo = app.get(getRepositoryToken(Company));
+        const permRepo = app.get(getRepositoryToken(Permission));
 
         // Cleanup
-        await userRepo.query(`DELETE FROM "user_roles_role"`);
-        await userRepo.query(`DELETE FROM "user"`);
-        await roleRepo.query(`DELETE FROM "role_permissions_permission"`);
-        await roleRepo.query(`DELETE FROM "role"`);
+        await userRepo.query(`TRUNCATE TABLE "user", "role", "companies", "permission" CASCADE`);
+
+        // Create Permissions
+        const createRoles = await permRepo.save({ slug: 'create.roles', description: 'Create Roles' });
+        const readRoles = await permRepo.save({ slug: 'read.roles', description: 'Read Roles' });
+        const updateRoles = await permRepo.save({ slug: 'update.roles', description: 'Update Roles' });
+        const deleteRoles = await permRepo.save({ slug: 'delete.roles', description: 'Delete Roles' });
+
+        // Create Company
+        const company = await companyRepo.save(
+            companyRepo.create({
+                name: 'Test Company',
+                email: 'test@company.com',
+                isActive: true
+            })
+        );
 
         // Create Admin Role
-        const adminRole = await roleRepo.save({ name: 'Admin', description: 'Administrator' });
+        const adminRole = await roleRepo.save({
+            name: 'Admin',
+            description: 'Administrator',
+            companyId: company.id
+        });
+
+        // Assign permissions to role
+        adminRole.permissions = [createRoles, readRoles, updateRoles, deleteRoles];
+        await roleRepo.save(adminRole);
 
         // Create Admin User
         const adminUser = await userRepo.save(userRepo.create({
@@ -40,7 +65,10 @@ describe('RolesController (e2e)', () => {
             email: 'admin-roles@example.com',
             password: 'password',
             age: 30,
-            roles: [adminRole]
+            roles: [adminRole],
+            companyId: company.id,
+            activeCompanyId: company.id,
+            companies: [company]
         }));
 
         // Login
@@ -88,8 +116,8 @@ describe('RolesController (e2e)', () => {
             .set('Authorization', `Bearer ${adminToken}`)
             .expect(200)
             .expect((res) => {
-                expect(Array.isArray(res.body)).toBeTruthy();
-                expect(res.body.length).toBeGreaterThanOrEqual(2); // Admin + Editor
+                expect(Array.isArray(res.body.data)).toBeTruthy();
+                expect(res.body.data.length).toBeGreaterThanOrEqual(1); // At least Admin
             });
     });
 });

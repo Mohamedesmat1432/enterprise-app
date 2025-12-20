@@ -7,8 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
-import { User } from '../entities/user.entity';
-import { Role } from '@modules/roles/entities/role.entity';
+import { User } from '@modules/users/domain/entities/user.entity';
+import { Role } from '@modules/roles/domain/entities/role.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
@@ -28,22 +28,41 @@ export class UsersService {
 
   // ==================== CRUD Operations ====================
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, companyId?: string) {
     try {
       const { roles, ...userData } = dto;
       const user = this.userRepo.create(userData);
 
-      if (roles?.length) {
-        user.roles = await this.findRolesByName(roles);
+      const targetCompanyId = companyId || (dto as any).companyId;
+      if (targetCompanyId) {
+        user.activeCompanyId = targetCompanyId;
+        user.companyId = targetCompanyId;
       }
 
-      return await this.userRepo.save(user);
+      if (roles?.length) {
+        if (!user.activeCompanyId) {
+          throw new BadRequestException('Cannot assign roles without an active company context');
+        }
+        user.roles = await this.findRolesByName(roles, user.activeCompanyId);
+      }
+
+      const savedUser = await this.userRepo.save(user);
+
+      if (targetCompanyId) {
+        await this.userRepo.createQueryBuilder()
+          .relation(User, 'companies')
+          .of(savedUser)
+          .add(targetCompanyId);
+      }
+
+      return savedUser;
     } catch (error) {
+      if (error instanceof BadRequestException) throw error;
       handleDatabaseError(error, 'Email already exists');
     }
   }
 
-  async findAll(query: UserQueryDto) {
+  async findAll(query: UserQueryDto, companyId?: string) {
     const {
       page = 1,
       limit = 10,
@@ -56,6 +75,10 @@ export class UsersService {
 
     const qb = this.userRepo.createQueryBuilder('user');
     qb.leftJoinAndSelect('user.roles', 'roles');
+
+    if (companyId) {
+      qb.innerJoin('user.companies', 'company', 'company.id = :companyId', { companyId });
+    }
 
     if (search) {
       qb.andWhere('(user.name ILIKE :search OR user.email ILIKE :search)', {
@@ -82,10 +105,15 @@ export class UsersService {
     return createPaginatedResponse(items, total, page, limit);
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, companyId?: string) {
+    const whereCondition: any = { id };
+    if (companyId) {
+      whereCondition.activeCompanyId = companyId; // Use activeCompanyId for strict matching
+    }
+
     const user = await this.userRepo.findOne({
-      where: { id },
-      relations: ['roles', 'roles.permissions'],
+      where: whereCondition,
+      relations: ['roles', 'roles.permissions', 'companies'],
     });
 
     if (!user) {
@@ -95,32 +123,29 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto, companyId?: string) {
     try {
       const { roles, password, ...rest } = dto;
 
-      // Validate user exists
-      const user = await this.findOne(id);
+      const user = await this.findOne(id, companyId);
 
-      // Prevent password updates via this method
       if (password) {
         throw new BadRequestException(
           'Use the change password endpoint to update password',
         );
       }
 
-      // Update basic fields if any
       if (Object.keys(rest).length) {
         await this.userRepo.update(id, rest);
       }
 
-      // Update roles if provided
       if (roles) {
-        user.roles = await this.findRolesByName(roles);
+        // Use the companyId from user object (verified by findOne)
+        user.roles = await this.findRolesByName(roles, user.activeCompanyId);
         await this.userRepo.save(user);
       }
 
-      return this.findOne(id);
+      return this.findOne(id, companyId);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
@@ -129,12 +154,8 @@ export class UsersService {
     }
   }
 
-  async remove(id: string) {
-    const user = await this.userRepo.findOne({ where: { id } });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+  async remove(id: string, companyId?: string) {
+    const user = await this.findOne(id, companyId);
 
     await this.userRepo.softDelete(id);
     return successResponse('User deleted successfully');
@@ -142,17 +163,22 @@ export class UsersService {
 
   // ==================== Role Management ====================
 
-  async assignRole(userId: string, roleName: string) {
-    const user = await this.findOne(userId);
-    const role = await this.roleRepo.findOne({ where: { name: roleName } });
+  async assignRole(userId: string, roleName: string, companyId: string) {
+    const user = await this.findOne(userId, companyId);
+
+    const role = await this.roleRepo.findOne({
+      where: {
+        name: roleName,
+        companyId: companyId
+      }
+    });
 
     if (!role) {
-      throw new NotFoundException(`Role '${roleName}' not found`);
+      throw new NotFoundException(`Role '${roleName}' not found in company context`);
     }
 
     user.roles = user.roles || [];
 
-    // Avoid duplicate assignment
     if (!user.roles.some((r) => r.id === role.id)) {
       user.roles.push(role);
       await this.userRepo.save(user);
@@ -168,7 +194,11 @@ export class UsersService {
       .createQueryBuilder('user')
       .addSelect('user.password')
       .where('user.email = :email', { email })
-      .leftJoinAndSelect('user.roles', 'roles')
+      .leftJoinAndSelect(
+        'user.roles',
+        'roles',
+        'roles.company_id = user.active_company_id'
+      )
       .leftJoinAndSelect('roles.permissions', 'permissions')
       .getOne();
   }
@@ -193,43 +223,39 @@ export class UsersService {
     await this.userRepo.update(userId, { lastLoginAt: new Date() });
   }
 
-  // ==================== Password Management ====================
-
   async changePassword(userId: string, dto: ChangePasswordDto) {
-    if (dto.newPassword !== dto.confirmPassword) {
-      throw new BadRequestException('New passwords do not match');
-    }
-
     const user = await this.userRepo
       .createQueryBuilder('user')
       .addSelect('user.password')
-      .where('user.id = :id', { id: userId })
+      .where('user.id = :userId', { userId })
       .getOne();
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    if (!user) throw new NotFoundException('User not found');
 
     const isValid = await bcrypt.compare(dto.currentPassword, user.password);
-    if (!isValid) {
-      throw new BadRequestException('Current password is incorrect');
-    }
+    if (!isValid) throw new BadRequestException('Invalid current password');
 
-    user.setPassword(dto.newPassword);
+    user.password = dto.newPassword; // Will be hashed via @BeforeUpdate in entity
     await this.userRepo.save(user);
 
-    return successResponse('Password changed successfully');
+    return { message: 'Password changed successfully' };
   }
 
   // ==================== Private Helpers ====================
 
-  private async findRolesByName(roleNames: string[]): Promise<Role[]> {
+  private async findRolesByName(roleNames: string[], companyId: string): Promise<Role[]> {
     const roles = await this.roleRepo.find({
-      where: { name: In(roleNames) },
+      where: {
+        name: In(roleNames),
+        companyId: companyId
+      },
     });
 
     if (roles.length !== roleNames.length) {
-      throw new NotFoundException('One or more roles not found');
+      // Find which are missing for better error
+      const foundNames = roles.map(r => r.name);
+      const missing = roleNames.filter(n => !foundNames.includes(n));
+      throw new NotFoundException(`Roles not found in company context: ${missing.join(', ')}`);
     }
 
     return roles;

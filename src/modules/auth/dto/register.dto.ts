@@ -4,6 +4,7 @@ import {
   IsInt,
   IsNotEmpty,
   IsString,
+  IsOptional,
   MinLength,
   MaxLength,
   Min,
@@ -38,4 +39,10 @@ export class RegisterDto {
   @IsNotEmpty()
   @IsStrongPassword()
   password: string;
+
+  @ApiProperty({ example: 'My Company', required: false })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  companyName?: string;
 }

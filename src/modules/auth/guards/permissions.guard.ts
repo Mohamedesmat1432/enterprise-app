@@ -8,9 +8,12 @@ import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { UsersService } from '@modules/users/services/users.service';
 
+import { ModuleRef } from '@nestjs/core';
+
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   private readonly logger = new Logger(PermissionsGuard.name);
+  private usersService: UsersService;
 
   // Simple in-memory cache to avoid repeated DB queries within same request cycle
   // Cache expires after 60 seconds
@@ -22,10 +25,19 @@ export class PermissionsGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
-    private usersService: UsersService,
+    private moduleRef: ModuleRef,
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (!this.usersService) {
+      try {
+        this.usersService = this.moduleRef.get(UsersService, { strict: false });
+      } catch (e) {
+        this.logger.error('Failed to resolve UsersService in PermissionsGuard', e.stack);
+        return false;
+      }
+    }
+
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],

@@ -22,6 +22,7 @@
     "migrate:generate": "npm run typeorm -- migration:generate src/migrations/InitSchema -d src/data-source.ts",
     "migrate:run": "npm run typeorm -- migration:run -d src/data-source.ts",
     "migrate:revert": "npm run typeorm -- migration:revert -d src/data-source.ts",
+    "migrate:drop": "npm run typeorm -- schema:drop -d src/data-source.ts",
     "migrate:fresh": "npm run typeorm -- schema:drop -d src/data-source.ts && npm run build && npm run migrate:run",
     "db:seed": "ts-node -r tsconfig-paths/register src/database/seeds/init.seeder.ts"
   },
@@ -94,6 +95,12 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@modules/(.*)$": "<rootDir>/modules/$1",
+      "^@common/(.*)$": "<rootDir>/common/$1",
+      "^@app/(.*)$": "<rootDir>/app/$1",
+      "^@core/(.*)$": "<rootDir>/core/$1"
+    }
   }
 }

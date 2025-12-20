@@ -1,16 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { UsersService } from '@modules/users/services/users.service';
+import { GetProfileUseCase } from '../application/use-cases/get-profile.use-case';
+import { UpdateProfileUseCase } from '../application/use-cases/update-profile.use-case';
 import { UpdateUserDto } from '@modules/users/dto/update-user.dto';
 
 @Injectable()
 export class ProfileService {
-    constructor(private readonly usersService: UsersService) { }
+    constructor(
+        private readonly getProfileUseCase: GetProfileUseCase,
+        private readonly updateProfileUseCase: UpdateProfileUseCase,
+    ) { }
 
-    getProfile(userId: string) {
-        return this.usersService.findOne(userId);
+    async getProfile(userId: string) {
+        return this.getProfileUseCase.execute(userId);
     }
 
-    updateProfile(userId: string, dto: UpdateUserDto) {
-        return this.usersService.update(userId, dto);
+    async updateProfile(userId: string, dto: UpdateUserDto) {
+        return this.updateProfileUseCase.execute(userId, dto);
     }
 }

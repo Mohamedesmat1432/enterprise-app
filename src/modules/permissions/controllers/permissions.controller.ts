@@ -9,7 +9,11 @@ import {
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
-import { PermissionsService } from '../services/permissions.service';
+import { CreatePermissionUseCase } from '../application/use-cases/create-permission.use-case';
+import { GetPermissionsUseCase } from '../application/use-cases/get-permissions.use-case';
+import { GetPermissionUseCase } from '../application/use-cases/get-permission.use-case';
+import { UpdatePermissionUseCase } from '../application/use-cases/update-permission.use-case';
+import { DeletePermissionUseCase } from '../application/use-cases/delete-permission.use-case';
 import { CreatePermissionDto } from '../dto/create-permission.dto';
 import { UpdatePermissionDto } from '../dto/update-permission.dto';
 import { PermissionQueryDto } from '../dto/permission-query.dto';
@@ -25,14 +29,20 @@ import {
 @ApiBearerAuth()
 @Controller('permissions')
 export class PermissionsController {
-  constructor(private readonly permissionsService: PermissionsService) { }
+  constructor(
+    private readonly createPermissionUseCase: CreatePermissionUseCase,
+    private readonly getPermissionsUseCase: GetPermissionsUseCase,
+    private readonly getPermissionUseCase: GetPermissionUseCase,
+    private readonly updatePermissionUseCase: UpdatePermissionUseCase,
+    private readonly deletePermissionUseCase: DeletePermissionUseCase,
+  ) { }
 
   @Post()
   @Permissions('create.permissions')
   @ApiOperation({ summary: 'Create permission' })
   @ApiResponse({ status: 201, description: 'Permission created.' })
   create(@Body() createPermissionDto: CreatePermissionDto) {
-    return this.permissionsService.create(createPermissionDto);
+    return this.createPermissionUseCase.execute(createPermissionDto);
   }
 
   @Get()
@@ -40,7 +50,7 @@ export class PermissionsController {
   @ApiOperation({ summary: 'Get all permissions' })
   @ApiResponse({ status: 200, description: 'Return all permissions.' })
   findAll(@Query() query: PermissionQueryDto) {
-    return this.permissionsService.findAll(query);
+    return this.getPermissionsUseCase.execute(query);
   }
 
   @Get(':id')
@@ -48,7 +58,7 @@ export class PermissionsController {
   @ApiOperation({ summary: 'Get permission by id' })
   @ApiResponse({ status: 200, description: 'Return permission.' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.permissionsService.findOne(id);
+    return this.getPermissionUseCase.execute(id);
   }
 
   @Patch(':id')
@@ -58,13 +68,14 @@ export class PermissionsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePermissionDto: UpdatePermissionDto,
   ) {
-    return this.permissionsService.update(id, updatePermissionDto);
+    return this.updatePermissionUseCase.execute(id, updatePermissionDto);
   }
 
   @Delete(':id')
   @Permissions('delete.permissions')
   @ApiOperation({ summary: 'Delete permission' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.permissionsService.remove(id);
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    await this.deletePermissionUseCase.execute(id);
+    return { message: 'Permission deleted successfully' };
   }
 }

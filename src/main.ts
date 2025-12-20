@@ -5,8 +5,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { HttpExceptionFilter } from '@common/filters/http-exception.filter';
 import { LoggingInterceptor } from '@common/interceptors/logging.interceptor';
+import { UserInterceptor } from '@common/interceptors/user.interceptor';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from '@app/app.module';
+import { ModuleRef } from '@nestjs/core';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -19,6 +21,9 @@ async function bootstrap() {
   });
 
   const configService = app.get(ConfigService);
+  const moduleRef = app.get(ModuleRef);
+
+  const port = configService.get<number>('PORT', 3000);
 
   // Security headers
   app.use(
@@ -65,8 +70,9 @@ async function bootstrap() {
   // Global exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Global logging interceptor
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  // Global interceptors
+  app.useGlobalInterceptors(new LoggingInterceptor(moduleRef));
+  app.useGlobalInterceptors(new UserInterceptor());
 
   // Swagger documentation
   const config = new DocumentBuilder()
@@ -87,7 +93,6 @@ async function bootstrap() {
     },
   });
 
-  const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
 
   logger.log(`Application is running on: http://localhost:${port}`);
